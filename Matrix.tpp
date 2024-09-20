@@ -10,21 +10,36 @@ namespace {
 	template <typename DT>
 	size_t utBuildMatMulProc(
 			std::vector<std::vector<size_t>>& table,
+            const typename MatMulResult<DT>::MatArray& matrices,
 			const std::deque<size_t>& matDims,
 			typename MatMulEvalResult<DT>::EvalProcTable& procTable,
 			uint start, uint end
 	) {
-		if (start >= end) return 0;
+		if (start >= end) {
+            if (start == end) {
+                procTable[start][end].set(start, matrices);
+            }
+            return 0;
+        }
 		if (table[start][end] != 0) {
 			return table[start][end];
 		}
 
 		size_t ans = SIZE_MAX;
+        std::pair<uint, uint> mat1Indices = std::make_pair(start, start);
+        std::pair<uint, uint> mat2Indices = std::make_pair(start+1, end);;
 		for (uint i = start; i < end; i++) {
-			size_t val = utBuildMatMulProc(table, matDims, procTable, start, i) + utBuildMatMulProc(table, matDims, procTable, i+1, end) +
-						 matDims[start] * matDims[i+1] * matDims[end+1];
-			ans = std::min(ans, val);
+			size_t val = utBuildMatMulProc<DT>(table, matrices, matDims, procTable, start, i)
+                    + utBuildMatMulProc<DT>(table, matrices, matDims, procTable, i+1, end)
+                    + matDims[start] * matDims[i+1] * matDims[end+1];
+            if (val < ans) {
+                mat1Indices.second = i;
+                mat2Indices.first = i+1;
+                ans = val;
+            }
 		}
+
+        procTable[start][end].set(mat1Indices, mat2Indices, &procTable);
 
 		table[start][end] = ans;
 		return ans;
@@ -37,11 +52,13 @@ namespace {
 		size_t N = m2.dim().second;
 		Matrix<DT> resultData(M, N);
 
+        size_t midDim = m1.dim().second;
+
 		for (size_t y = 0; y < M; y++) {
-			for (size_t x = 0; x < m2.N; x++) {
+			for (size_t x = 0; x < N; x++) {
 				DT val = 0;
-				for (size_t i = 0; i < N; i++) {
-					val += m1[y][i] * m2[i][x];
+				for (size_t i = 0; i < midDim; i++) {
+					val += m1.dataAt(y, i) * m2.dataAt(i, x);
 				}
 				resultData[y][x] = val;
 			}
@@ -86,17 +103,44 @@ namespace linalg {
 		return &(data.get()[i*N]);
 	}
 
+    template<typename DT>
+    DT Matrix<DT>::dataAt(size_t y, size_t x) const {
+        return data.get()[y*N+x];
+    }
+
+    template<typename DT>
+    Matrix<DT>& Matrix<DT>::operator=(const Matrix<DT>& other) {
+        M = other.M;
+        N = other.N;
+        unique_ptr<DT[]> newData(new DT[M*N]);
+        data.swap(newData);
+        std::memcpy(data.get(), other.data.get(), sizeof(DT)*M*N);
+        return *this;
+    }
+
+    template<typename DT>
+    Matrix<DT>& Matrix<DT>::operator=(Matrix<DT>&& other) noexcept {
+        M = other.M;
+        N = other.N;
+        data = std::move(other.data);
+        return *this;
+    }
+
 	template<typename DT>
 	void MatMulResult<DT>::extend(const MatMulResult<DT>& other) {
 		assert(N == other.M);
 		matrices.insert(matrices.end(), other.matrices.begin(), other.matrices.end());
+        matDims.insert(matDims.end(), other.matDims.begin()+1, other.matDims.end());
 		N = other.N;
 	}
 
 	template<typename DT>
-	Matrix<DT> MatMulResult<DT>::evaluate() {
-		std::vector<std::vector<DT>> table;
-		return Matrix<DT>();
+	Matrix<DT> MatMulResult<DT>::evaluate() const {
+        int matCount = matrices.size();
+		std::vector<std::vector<size_t>> table(matCount, std::vector<size_t>(matCount, 0));
+        typename MatMulEvalResult<DT>::EvalProcTable procTable(matCount, std::vector<MatMulEvalResult<DT>>(matCount));
+        utBuildMatMulProc<DT>(table, matrices, matDims, procTable, (uint)0, static_cast<uint>(matCount - 1));
+        return procTable[0][matCount - 1].getData();
 	}
 
 	template<typename DT>
@@ -113,6 +157,11 @@ namespace linalg {
 		N = other.N;
 	}
 
+    template<typename DT>
+    MatMulResult<DT>::operator Matrix<DT>() const {
+        return evaluate();
+    }
+
 	template<typename DT>
 	MatMulEvalResult<DT>::MatMulEvalResult(
 			uint& matIndex, const typename MatMulResult<DT>::MatArray& matrices
@@ -122,15 +171,34 @@ namespace linalg {
 	MatMulEvalResult<DT>::MatMulEvalResult(
 			const std::pair<uint, uint>& mat1,
 			const std::pair<uint, uint>& mat2,
-			MatMulEvalResult::EvalProcTable& table
+			MatMulEvalResult::EvalProcTable* table
 	): firstMat{mat1}, secondMat{mat2}, evalProcTable{table}, evaluated{false} {}
+
+
+    template<typename DT>
+    void MatMulEvalResult<DT>::set(uint& matIndex, const typename MatMulResult<DT>::MatArray& matrices) {
+        data = matrices[matIndex];
+        evaluated = true;
+    }
+
+    template<typename DT>
+    void MatMulEvalResult<DT>::set(
+            const std::pair<uint, uint>& mat1,
+            const std::pair<uint, uint>& mat2,
+            EvalProcTable* table
+    ) {
+        firstMat = mat1;
+        secondMat = mat2;
+        evalProcTable = table;
+    }
 
 	template<typename DT>
 	void MatMulEvalResult<DT>::evaluate() {
+        assert(evaluated || !evalProcTable->empty());
 		if (!evaluated) {
-			MatMulEvalResult<DT>& firstMatEvaled = evalProcTable[firstMat.first][firstMat.second];
+			MatMulEvalResult<DT>& firstMatEvaled = (*evalProcTable)[firstMat.first][firstMat.second];
 			firstMatEvaled.evaluate();
-			MatMulEvalResult<DT>& secondMatEvaled = evalProcTable[secondMat.first][secondMat.second];
+			MatMulEvalResult<DT>& secondMatEvaled = (*evalProcTable)[secondMat.first][secondMat.second];
 			secondMatEvaled.evaluate();
 
 			this->data = std::make_shared<Matrix<DT>>(std::move(firstMatEvaled.matMulPerform(secondMatEvaled)));
@@ -138,10 +206,46 @@ namespace linalg {
 		}
 	}
 
+    template<typename DT>
+    Matrix<DT> MatMulEvalResult<DT>::getData() {
+        evaluate();
+        Matrix<DT> result;
+        std::visit(match{
+            [&](std::reference_wrapper<const Matrix<DT>>& mat) {
+                result = mat.get();
+            },
+            [&](std::shared_ptr<const Matrix<DT>>& mat) {
+                result = *(mat.get());
+            }
+        }, data);
+        return result;
+    }
+
 	template<typename DT>
-	Matrix<DT> MatMulEvalResult<DT>::matMulPerform(const MatMulEvalResult& other) {
+	Matrix<DT> MatMulEvalResult<DT>::matMulPerform(MatMulEvalResult& other) {
 		assert(evaluated && other.evaluated);
-		return matMulImpl(this->data, other.data);
+
+        const Matrix<DT>* mat1;
+        std::visit(match{
+            [&](std::reference_wrapper<const Matrix<DT>>& mat) {
+                mat1 = &mat.get();
+            },
+            [&](std::shared_ptr<const Matrix<DT>>& mat) {
+                mat1 = mat.get();
+            }
+        }, data);
+
+        const Matrix<DT>* mat2;
+        std::visit(match{
+            [&](std::reference_wrapper<const Matrix<DT>>& mat) {
+                mat2 = &mat.get();
+            },
+            [&](std::shared_ptr<const Matrix<DT>>& mat) {
+                mat2 = mat.get();
+            }
+        }, other.data);
+
+		return matMulImpl(*mat1, *mat2);
 	}
 
 } // linalg

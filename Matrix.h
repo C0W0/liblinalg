@@ -27,6 +27,8 @@ namespace linalg {
 
 	template <typename DT>
 	class MatMulResult;
+    template <typename DT>
+    class MatMulEvalResult;
 
 	// M(height) by N(width) matrix
 	template <typename DT>
@@ -42,7 +44,7 @@ namespace linalg {
 		};
 
 		template<typename DO>
-		Matrix(Matrix<DO>& other): M{other.M}, N{other.N}, data{new DT[other.M*other.N]} {
+		explicit Matrix(Matrix<DO>& other): M{other.M}, N{other.N}, data{new DT[other.M*other.N]} {
 			std::cout << "Copy Constructor Invoked" << std::endl;
 			if constexpr (std::is_same_v<DO, DT>) {
 				std::memcpy(data.get(), other.data.get(), sizeof(DT)*M*N);
@@ -84,32 +86,39 @@ namespace linalg {
 
 		void operator *=(const Matrix<DT>& other);
 		DT* operator [](size_t i);
+
+        Matrix<DT>& operator =(const Matrix<DT>& other);
+        Matrix<DT>& operator =(Matrix<DT>&& other) noexcept;
+
 		void print(std::ostream& iostream) const;
 		void print() const;
+
+        DT dataAt(size_t y, size_t x) const;
 	private:
 		unique_ptr<DT[]> data;
 		size_t M; // height
 		size_t N; // width
 	// friends
 		friend class MatMulResult<DT>;
+        friend class MatMulEvalResult<DT>;
 
 		friend MatMulResult<DT> operator*(Matrix<DT>& mat1, Matrix<DT>& mat2) {
-			assert(N == other.M);
+			assert(mat1.N == mat2.M);
 			return MatMulResult<DT>(std::cref(mat1), std::cref(mat2));
 		}
 
 		friend MatMulResult<DT> operator*(Matrix<DT>& mat1, Matrix<DT>&& mat2) {
-			assert(N == other.M);
+			assert(mat1.N == mat2.M);
 			return MatMulResult<DT>(std::cref(mat1), std::make_shared<Matrix<DT>>(std::move(mat2)));
 		}
 
 		friend MatMulResult<DT> operator*(Matrix<DT>&& mat1, Matrix<DT>& mat2) {
-			assert(N == other.M);
+			assert(mat1.N == mat2.M);
 			return MatMulResult<DT>(std::make_shared<Matrix<DT>>(std::move(mat1)), std::cref(mat2));
 		}
 
 		friend MatMulResult<DT> operator*(Matrix<DT>&& mat1, Matrix<DT>&& mat2) {
-			assert(N == other.M);
+			assert(mat1.N == mat2.M);
 			return MatMulResult<DT>(std::make_shared<Matrix<DT>>(std::move(mat1)), std::make_shared<Matrix<DT>>(std::move(mat2)));
 		}
 
@@ -128,9 +137,10 @@ namespace linalg {
 
 	template <typename DT>
 	class MatMulResult {
-		using MatRef = variant<std::reference_wrapper<const Matrix<DT>>, shared_ptr<const Matrix<DT>>>;
-		using MatArray = std::deque<MatRef>;
 	public:
+        using MatRef = variant<std::reference_wrapper<const Matrix<DT>>, shared_ptr<const Matrix<DT>>>;
+        using MatArray = std::deque<MatRef>;
+
 		MatMulResult(): M{0}, N{0} {};
 		MatMulResult(MatRef m1, MatRef m2) {
 			std::visit(match{
@@ -159,11 +169,14 @@ namespace linalg {
 			matrices.push_back(m2);
 		}
 
-		Matrix<DT> evaluate();
+		Matrix<DT> evaluate() const;
 		void extend(const MatMulResult<DT>& other);
 
 		void operator *=(const Matrix<DT>& other);
 		void operator *=(const MatMulResult<DT>& other);
+
+        operator Matrix<DT>() const;
+
 	private:
 		MatArray matrices;
 		std::deque<size_t> matDims;
@@ -174,10 +187,11 @@ namespace linalg {
 		template<typename MR>
 		std::enable_if_t<std::is_same_v<std::decay_t<MR>, MatMulResult<DT>>, MatMulResult<DT>>
 		friend operator*(MR&& from, Matrix<DT>& mat) {
-			assert(from.N == mat.M);
+			assert(from.N == mat.dim().first);
 			// if from is lvalue, we duplicated it; if it's rvalue, we move it
 			MatMulResult<DT> dup(from);
 			dup.matrices.push_back(std::cref(mat));
+            dup.matDims.push_back(mat.dim().second);
 			dup.N = mat.dim().second;
 			return dup;
 		}
@@ -185,10 +199,11 @@ namespace linalg {
 		template<typename MR>
 		std::enable_if_t<std::is_same_v<std::decay_t<MR>, MatMulResult<DT>>, MatMulResult<DT>>
 		friend operator*(MR&& from, Matrix<DT>&& mat) {
-			assert(from.N == mat.M);
+			assert(from.N == mat.dim().first);
 			// if from is lvalue, we duplicated it; if it's rvalue, we move it
 			MatMulResult<DT> dup(from);
 			dup.matrices.push_back(std::make_shared<Matrix<DT>>(std::move(mat)));
+            dup.matDims.push_back(mat.dim().second);
 			dup.N = mat.dim().second;
 			return dup;
 		}
@@ -211,6 +226,7 @@ namespace linalg {
 			// if from is lvalue, we duplicated it; if it's rvalue, we move it
 			MatMulResult<DT> dup(to);
 			dup.matrices.push_front(std::cref(mat));
+            dup.matDims.push_front(mat.dim().first);
 			dup.M = mat.dim().first;
 			return dup;
 		}
@@ -222,33 +238,40 @@ namespace linalg {
 			// if from is lvalue, we duplicated it; if it's rvalue, we move it
 			MatMulResult<DT> dup(to);
 			dup.matrices.push_front(std::make_shared<Matrix<DT>>(std::move(mat)));
+            dup.matDims.push_front(mat.dim().first);
 			dup.M = mat.dim().first;
 			return dup;
 		}
 	};
 
-	template <typename DT>
+    template <typename DT>
 	class MatMulEvalResult {
-		using EvalProcTable = std::vector<std::vector<MatMulEvalResult<DT>>>;
-
 	public:
-		MatMulEvalResult(): evaluated{false} {};
+        using EvalProcTable = std::vector<std::vector<MatMulEvalResult<DT>>>;
+
+		MatMulEvalResult(): evaluated{false}, data{std::make_shared<Matrix<DT>>()} {};
 		MatMulEvalResult(uint& matIndex, const typename MatMulResult<DT>::MatArray& matrices);
 		MatMulEvalResult(const std::pair<uint, uint>& mat1, const std::pair<uint, uint>& mat2,
-						 EvalProcTable& table);
+						 EvalProcTable* table);
 
-		Matrix<DT> matMulPerform(const MatMulEvalResult& other);
+		Matrix<DT> matMulPerform(MatMulEvalResult& other);
 		void evaluate();
+
+        void set(uint& matIndex, const typename MatMulResult<DT>::MatArray& matrices);
+        void set(const std::pair<uint, uint>& mat1, const std::pair<uint, uint>& mat2,
+                 EvalProcTable* table);
+
+        Matrix<DT> getData();
 
 	private:
 		std::pair<uint, uint> firstMat;
 		std::pair<uint, uint> secondMat;
 		bool evaluated{};
 		typename MatMulResult<DT>::MatRef data;
-		EvalProcTable& evalProcTable;
+		EvalProcTable* evalProcTable;
 	};
 
-	using MatrixD = Matrix<double>;
+    using MatrixD = Matrix<double>;
 	using VecD = Vector<double>;
 	using MatrixF = Matrix<float>;
 	using VecF = Vector<float>;
