@@ -2,7 +2,7 @@
 // Created by Terry on 2024-08-21.
 //
 
-#include "Matrix.h"
+#include "../include/Matrix.h"
 
 namespace {
 	using namespace linalg;

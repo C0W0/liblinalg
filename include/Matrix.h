@@ -286,6 +286,4 @@ namespace linalg {
 
 } // linalg
 
-#include "Matrix.tpp"
-
 #endif //LINALG_MATRIX_H
