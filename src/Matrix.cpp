@@ -4,6 +4,7 @@
 
 #include "../include/Matrix.h"
 
+
 namespace {
 	using namespace linalg;
 
@@ -69,6 +70,18 @@ namespace {
 }
 
 namespace linalg {
+#define LINALG_IMPL(DT) template class MatMulResult<DT>; \
+    template class MatMulEvalResult<DT>; \
+    template class Matrix<DT>; \
+    template class Vector<DT>;
+
+    LINALG_IMPL(double)
+    LINALG_IMPL(float)
+    LINALG_IMPL(char)
+    LINALG_IMPL(short)
+    LINALG_IMPL(int)
+    LINALG_IMPL(long long)
+
 	template<typename DT>
 	void Matrix<DT>::print(std::ostream& iostream) const {
 		iostream << "[";
@@ -94,8 +107,8 @@ namespace linalg {
 	template<typename DT>
 	void Matrix<DT>::operator*=(const Matrix<DT>& other) {
 		assert(N == other.M);
-		auto result = MatMulResult<DT>(this, &other).evaluate();
-		this = std::move(result);
+		auto result = MatMulResult<DT>(*this, other).evaluate();
+		*this = std::move(result);
 	}
 
 	template<typename DT>
@@ -146,7 +159,7 @@ namespace linalg {
 	template<typename DT>
 	void MatMulResult<DT>::operator*=(const Matrix<DT>& other) {
 		assert(N == other.M);
-		matrices.push_back(&other);
+		matrices.push_back(other);
 		N = other.N;
 	}
 
@@ -172,7 +185,7 @@ namespace linalg {
 			const std::pair<uint, uint>& mat1,
 			const std::pair<uint, uint>& mat2,
 			MatMulEvalResult::EvalProcTable* table
-	): firstMat{mat1}, secondMat{mat2}, evalProcTable{table}, evaluated{false} {}
+	): firstMat{mat1}, secondMat{mat2}, evalProcTable{table}, evaluated{false}, data{std::make_shared<Matrix<DT>>()} {}
 
 
     template<typename DT>
