@@ -4,7 +4,6 @@
 
 #include "Matrix.h"
 
-
 namespace {
 	using namespace linalg;
 
@@ -77,10 +76,14 @@ namespace linalg {
 
     LINALG_IMPL(double)
     LINALG_IMPL(float)
-    LINALG_IMPL(char)
-    LINALG_IMPL(short)
-    LINALG_IMPL(int)
-    LINALG_IMPL(long long)
+	LINALG_IMPL(int8_t)
+	LINALG_IMPL(uint8_t)
+	LINALG_IMPL(int16_t)
+	LINALG_IMPL(uint16_t)
+	LINALG_IMPL(int32_t)
+	LINALG_IMPL(uint32_t)
+	LINALG_IMPL(int64_t)
+	LINALG_IMPL(uint64_t)
 
 	template<typename DT>
 	void Matrix<DT>::print(std::ostream& iostream) const {

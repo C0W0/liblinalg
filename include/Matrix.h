@@ -275,14 +275,23 @@ namespace linalg {
 	using VecD = Vector<double>;
 	using MatrixF = Matrix<float>;
 	using VecF = Vector<float>;
-	using MatrixC = Matrix<char>;
-	using VecC = Vector<char>;
-	using MatrixS = Matrix<short>;
-	using VecS = Vector<short>;
-	using MatrixI = Matrix<int>;
-	using VecI = Vector<int>;
-	using MatrixL = Matrix<long long>;
-	using VecL = Vector<long long>;
+	using Matrix8 = Matrix<int8_t>;
+	using Vec8 = Vector<int8_t>;
+	using Matrix16 = Matrix<int16_t>;
+	using Vec16 = Vector<int16_t>;
+	using Matrix32 = Matrix<int32_t>;
+	using Vec32 = Vector<int32_t>;
+	using Matrix64 = Matrix<int64_t>;
+	using Vec64 = Vector<ino64_t>;
+
+	using MatrixC = Matrix<int8_t>;
+	using VecC = Vector<int8_t>;
+	using MatrixS = Matrix<int16_t>;
+	using VecS = Vector<int16_t>;
+	using MatrixI = Matrix<int32_t>;
+	using VecI = Vector<int32_t>;
+	using MatrixL = Matrix<int64_t>;
+	using VecL = Vector<ino64_t>;
 
 } // linalg
 
