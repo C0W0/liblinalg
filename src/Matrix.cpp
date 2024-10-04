@@ -14,7 +14,7 @@ namespace {
             const typename MatMulResult<DT>::MatArray& matrices,
 			const std::deque<size_t>& matDims,
 			typename MatMulEvalResult<DT>::EvalProcTable& procTable,
-			uint start, uint end
+			uint32_t start, uint32_t end
 	) {
 		if (start >= end) {
             if (start == end) {
@@ -27,9 +27,9 @@ namespace {
 		}
 
 		size_t ans = SIZE_MAX;
-        std::pair<uint, uint> mat1Indices = std::make_pair(start, start);
-        std::pair<uint, uint> mat2Indices = std::make_pair(start+1, end);;
-		for (uint i = start; i < end; i++) {
+        std::pair<uint32_t, uint32_t> mat1Indices = std::make_pair(start, start);
+        std::pair<uint32_t, uint32_t> mat2Indices = std::make_pair(start+1, end);
+		for (uint32_t i = start; i < end; i++) {
 			size_t val = utBuildMatMulProc<DT>(table, matrices, matDims, procTable, start, i)
                     + utBuildMatMulProc<DT>(table, matrices, matDims, procTable, i+1, end)
                     + matDims[start] * matDims[i+1] * matDims[end+1];
@@ -152,7 +152,7 @@ namespace linalg {
         int matCount = matrices.size();
 		std::vector<std::vector<size_t>> table(matCount, std::vector<size_t>(matCount, 0));
         typename MatMulEvalResult<DT>::EvalProcTable procTable(matCount, std::vector<MatMulEvalResult<DT>>(matCount));
-        utBuildMatMulProc<DT>(table, matrices, matDims, procTable, (uint)0, static_cast<uint>(matCount - 1));
+        utBuildMatMulProc<DT>(table, matrices, matDims, procTable, (uint32_t)0, static_cast<uint32_t>(matCount - 1));
         return procTable[0][matCount - 1].getData();
 	}
 
@@ -177,27 +177,27 @@ namespace linalg {
 
 	template<typename DT>
 	MatMulEvalResult<DT>::MatMulEvalResult(
-			uint& matIndex, const typename MatMulResult<DT>::MatArray& matrices
+			uint32_t& matIndex, const typename MatMulResult<DT>::MatArray& matrices
 	): evaluated{true}, data{matrices[matIndex]} {}
 
 	template<typename DT>
 	MatMulEvalResult<DT>::MatMulEvalResult(
-			const std::pair<uint, uint>& mat1,
-			const std::pair<uint, uint>& mat2,
+			const std::pair<uint32_t, uint32_t>& mat1,
+			const std::pair<uint32_t, uint32_t>& mat2,
 			MatMulEvalResult::EvalProcTable* table
 	): firstMat{mat1}, secondMat{mat2}, evalProcTable{table}, evaluated{false}, data{std::make_shared<Matrix<DT>>()} {}
 
 
     template<typename DT>
-    void MatMulEvalResult<DT>::set(uint& matIndex, const typename MatMulResult<DT>::MatArray& matrices) {
+    void MatMulEvalResult<DT>::set(uint32_t& matIndex, const typename MatMulResult<DT>::MatArray& matrices) {
         data = matrices[matIndex];
         evaluated = true;
     }
 
     template<typename DT>
     void MatMulEvalResult<DT>::set(
-            const std::pair<uint, uint>& mat1,
-            const std::pair<uint, uint>& mat2,
+            const std::pair<uint32_t, uint32_t>& mat1,
+            const std::pair<uint32_t, uint32_t>& mat2,
             EvalProcTable* table
     ) {
         firstMat = mat1;

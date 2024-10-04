@@ -250,22 +250,22 @@ namespace linalg {
         using EvalProcTable = std::vector<std::vector<MatMulEvalResult<DT>>>;
 
 		MatMulEvalResult(): evaluated{false}, data{std::make_shared<Matrix<DT>>()} {};
-		MatMulEvalResult(uint& matIndex, const typename MatMulResult<DT>::MatArray& matrices);
-		MatMulEvalResult(const std::pair<uint, uint>& mat1, const std::pair<uint, uint>& mat2,
+		MatMulEvalResult(uint32_t& matIndex, const typename MatMulResult<DT>::MatArray& matrices);
+		MatMulEvalResult(const std::pair<uint32_t, uint32_t>& mat1, const std::pair<uint32_t, uint32_t>& mat2,
 						 EvalProcTable* table);
 
 		Matrix<DT> matMulPerform(MatMulEvalResult& other);
 		void evaluate();
 
-        void set(uint& matIndex, const typename MatMulResult<DT>::MatArray& matrices);
-        void set(const std::pair<uint, uint>& mat1, const std::pair<uint, uint>& mat2,
+        void set(uint32_t& matIndex, const typename MatMulResult<DT>::MatArray& matrices);
+        void set(const std::pair<uint32_t, uint32_t>& mat1, const std::pair<uint32_t, uint32_t>& mat2,
                  EvalProcTable* table);
 
         Matrix<DT> getData();
 
 	private:
-		std::pair<uint, uint> firstMat;
-		std::pair<uint, uint> secondMat;
+		std::pair<uint32_t, uint32_t> firstMat;
+		std::pair<uint32_t, uint32_t> secondMat;
 		bool evaluated{};
 		typename MatMulResult<DT>::MatRef data;
 		EvalProcTable* evalProcTable;
