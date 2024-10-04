@@ -126,19 +126,23 @@ namespace linalg {
 
     template<typename DT>
     Matrix<DT>& Matrix<DT>::operator=(const Matrix<DT>& other) {
-        M = other.M;
-        N = other.N;
-        unique_ptr<DT[]> newData(new DT[M*N]);
-        data.swap(newData);
-        std::memcpy(data.get(), other.data.get(), sizeof(DT)*M*N);
+		if (this != &other) {
+			M = other.M;
+			N = other.N;
+			unique_ptr<DT[]> newData(new DT[M*N]);
+			data.swap(newData);
+			std::memcpy(data.get(), other.data.get(), sizeof(DT)*M*N);
+		}
         return *this;
     }
 
     template<typename DT>
     Matrix<DT>& Matrix<DT>::operator=(Matrix<DT>&& other) noexcept {
-        M = other.M;
-        N = other.N;
-        data = std::move(other.data);
+		if (this != &other) {
+			M = other.M;
+			N = other.N;
+			data = std::move(other.data);
+		}
         return *this;
     }
 
