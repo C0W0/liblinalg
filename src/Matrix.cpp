@@ -2,7 +2,7 @@
 // Created by Terry on 2024-08-21.
 //
 
-#include "../include/Matrix.h"
+#include "Matrix.h"
 
 
 namespace {

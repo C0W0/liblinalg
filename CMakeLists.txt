@@ -25,3 +25,6 @@ add_custom_command(TARGET linalg POST_BUILD
 add_executable(linalg_test main.cpp
         src/Matrix.cpp
         include/Matrix.h)
+
+target_include_directories(linalg_test PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include)
