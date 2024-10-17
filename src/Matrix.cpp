@@ -136,6 +136,11 @@ namespace linalg {
 		*this = std::move(result);
 	}
 
+    template<typename DT>
+    void Matrix<DT>::operator *=(DT scalar) {
+        matScalMulInplace(*this, scalar);
+    }
+
 	template<typename DT>
 	DT* Matrix<DT>::operator[](const size_t i) {
 		return &(data.get()[i*N]);
@@ -178,6 +183,11 @@ namespace linalg {
 
 	template<typename DT>
 	Matrix<DT> MatMulResult<DT>::evaluate() {
+        // this is an "intermediate representation" of matrix multiplication
+        // and thus evaluate should only be called once.
+        assert(!evaluated);
+        evaluated = true;
+
         int matCount = matrices.size();
 
 		// todo: optimize scalar multiplication to run on the smallest intermediate matrix
@@ -228,6 +238,11 @@ namespace linalg {
 		matrices.insert(matrices.end(), other.matrices.begin(), other.matrices.end());
 		N = other.N;
 	}
+
+    template<typename DT>
+    void MatMulResult<DT>::operator*=(DT scal) {
+        scalar *= scal;
+    }
 
     template<typename DT>
     MatMulResult<DT>::operator Matrix<DT>() {

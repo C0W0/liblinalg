@@ -89,6 +89,7 @@ namespace linalg {
 		[[nodiscard]] std::pair<size_t, size_t> dim() const { return {M, N}; };
 
 		void operator *=(const Matrix<DT>& other);
+        void operator *=(DT scalar);
 		DT* operator [](size_t i);
 
         Matrix<DT>& operator =(const Matrix<DT>& other);
@@ -125,6 +126,14 @@ namespace linalg {
 			assert(mat1.N == mat2.M);
 			return MatMulResult<DT>(std::make_shared<Matrix<DT>>(std::move(mat1)), std::make_shared<Matrix<DT>>(std::move(mat2)));
 		}
+
+        friend MatMulResult<DT> operator*(const Matrix<DT>& mat1, DT scalar) {
+            return MatMulResult<DT>(std::cref(mat1), scalar);
+        }
+
+        friend MatMulResult<DT> operator*(Matrix<DT>&& mat1, DT scalar) {
+            return MatMulResult<DT>(std::make_shared<Matrix<DT>>(std::move(mat1)), scalar);
+        }
 
 		friend std::ostream& operator<<(std::ostream& ostream, const Matrix<DT>& mat) {
 			mat.print(ostream);
@@ -193,10 +202,12 @@ namespace linalg {
 
 		void operator *=(const Matrix<DT>& other);
 		void operator *=(const MatMulResult<DT>& other);
+        void operator *=(DT scal);
 
         operator Matrix<DT>();
 
 	private:
+        bool evaluated = false;
 		DT scalar = 1;
 		MatArray matrices;
 		std::deque<size_t> matDims;
@@ -262,6 +273,17 @@ namespace linalg {
 			dup.M = mat.dim().first;
 			return dup;
 		}
+
+        friend MatMulResult<DT> operator*(MatMulResult<DT>&& from, DT scal) {
+            from *= scal;
+            return from;
+        }
+
+        friend MatMulResult<DT> operator*(const MatMulResult<DT>& from, DT scal) {
+            MatMulResult<DT> dup(from);
+            dup *= scal;
+            return dup;
+        }
 	};
 
     template <typename DT>
