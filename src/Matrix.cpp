@@ -66,6 +66,28 @@ namespace {
 
 		return resultData;
 	}
+
+	template<typename DT>
+	Matrix<DT> matScalMulImpl(const Matrix<DT>& m1, const DT scalar) {
+		Matrix<DT> result(m1);
+		const auto&& [M, N] = m1.dim();
+		for (size_t y = 0; y < M; y++) {
+			for (size_t x = 0; x < N; x++) {
+				result[y][x] = scalar * result[y][x];
+			}
+		}
+		return result;
+	}
+
+	template<typename DT>
+	void matScalMulInplace(Matrix<DT>& m1, const DT scalar) {
+		const auto&& [M, N] = m1.dim();
+		for (size_t y = 0; y < M; y++) {
+			for (size_t x = 0; x < N; x++) {
+				m1[y][x] = scalar * m1[y][x];
+			}
+		}
+	}
 }
 
 namespace linalg {
@@ -155,12 +177,42 @@ namespace linalg {
 	}
 
 	template<typename DT>
-	Matrix<DT> MatMulResult<DT>::evaluate() const {
+	Matrix<DT> MatMulResult<DT>::evaluate() {
         int matCount = matrices.size();
+
+		// todo: optimize scalar multiplication to run on the smallest intermediate matrix
+		// for now, we just use the smallest of the source matrices or the resulting matrix
+		uint32_t minMatrixSize = M*N;
+		uint32_t minMatrixIndex = -1;
+		for (uint32_t i = 0; i < matCount; i++) {
+			if (matDims[i]*matDims[i+1] < minMatrixSize) {
+				minMatrixIndex = i;
+				minMatrixSize = matDims[i]*matDims[i+1];
+			}
+		}
+    	if (minMatrixIndex != -1) {
+    		Matrix<DT> scalMulResult;
+    		std::visit(match{
+				[&scalMulResult, this](std::reference_wrapper<const Matrix<DT>>& mat) {
+					scalMulResult = matScalMulImpl(mat.get(), scalar);
+				},
+				[&scalMulResult, this](std::shared_ptr<const Matrix<DT>>& mat) {
+					scalMulResult = matScalMulImpl(*(mat.get()), scalar);
+				}
+			}, matrices[minMatrixIndex]);
+
+    		matrices[minMatrixIndex] = std::make_shared<Matrix<DT>>(std::move(scalMulResult));
+    	}
+
 		std::vector<std::vector<size_t>> table(matCount, std::vector<size_t>(matCount, 0));
         typename MatMulEvalResult<DT>::EvalProcTable procTable(matCount, std::vector<MatMulEvalResult<DT>>(matCount));
         utBuildMatMulProc<DT>(table, matrices, matDims, procTable, (uint32_t)0, static_cast<uint32_t>(matCount - 1));
-        return procTable[0][matCount - 1].getData();
+
+    	Matrix<DT> result(std::move(procTable[0][matCount - 1].getData()));
+    	if (minMatrixIndex == -1) {
+    		matScalMulInplace(result, scalar);
+    	}
+    	return result;
 	}
 
 	template<typename DT>
@@ -178,7 +230,7 @@ namespace linalg {
 	}
 
     template<typename DT>
-    MatMulResult<DT>::operator Matrix<DT>() const {
+    MatMulResult<DT>::operator Matrix<DT>() {
         return evaluate();
     }
 

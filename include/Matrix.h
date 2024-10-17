@@ -42,9 +42,8 @@ namespace linalg {
 		Matrix(size_t m, size_t n): M{m}, N{n}, data{new DT[m*n]} {
 			std::fill(data.get(), data.get()+m*n, 0);
 		};
-
-		template<typename DO>
-		explicit Matrix(Matrix<DO>& other): M{other.M}, N{other.N}, data{new DT[other.M*other.N]} {
+		template<typename DO, std::enable_if_t<!std::is_same_v<DO, DT>>>
+		explicit Matrix(const Matrix<DO>& other): M{other.M}, N{other.N}, data{new DT[other.M*other.N]} {
 			std::cout << "Copy Constructor Invoked" << std::endl;
 			if constexpr (std::is_same_v<DO, DT>) {
 				std::memcpy(data.get(), other.data.get(), sizeof(DT)*M*N);
@@ -55,6 +54,11 @@ namespace linalg {
 					}
 				}
 			}
+		}
+
+		Matrix(const Matrix<DT>& other): M{other.M}, N{other.N}, data{new DT[other.M*other.N]} {
+			std::cout << "Copy Constructor Invoked" << std::endl;
+			std::memcpy(data.get(), other.data.get(), sizeof(DT)*M*N);
 		}
 
 		Matrix(Matrix<DT>&& other) noexcept : M{other.M}, N{other.N}, data{std::move(other.data)} {
@@ -168,16 +172,32 @@ namespace linalg {
 			matrices.push_back(m1);
 			matrices.push_back(m2);
 		}
+		MatMulResult(MatRef m1, DT scalarMut): scalar{scalarMut} {
+			std::visit(match{
+				[this](std::reference_wrapper<const Matrix<DT>>& mat) {
+					this->M = mat.get().M;
+					this->N = mat.get().N;
+				},
+				[this](std::shared_ptr<const Matrix<DT>>& mat) {
+					this->M = mat->M;
+					this->N = mat->N;
+				}
+			}, m1);
+			matrices.push_back(m1);
+			matDims.push_back(M);
+			matDims.push_back(N);
+		}
 
-		Matrix<DT> evaluate() const;
+		Matrix<DT> evaluate();
 		void extend(const MatMulResult<DT>& other);
 
 		void operator *=(const Matrix<DT>& other);
 		void operator *=(const MatMulResult<DT>& other);
 
-        operator Matrix<DT>() const;
+        operator Matrix<DT>();
 
 	private:
+		DT scalar = 1;
 		MatArray matrices;
 		std::deque<size_t> matDims;
 		size_t M = 0; // height
