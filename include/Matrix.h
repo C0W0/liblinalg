@@ -209,7 +209,7 @@ namespace linalg {
 		friend operator*(MR&& from, Matrix<DT>& mat) {
 			assert(from.N == mat.dim().first);
 			// if from is lvalue, we duplicated it; if it's rvalue, we move it
-			MatMulResult<DT> dup(from);
+			MatMulResult<DT> dup(std::forward<MatMulResult<DT>>(from));
 			dup.matrices.push_back(std::cref(mat));
             dup.matDims.push_back(mat.dim().second);
 			dup.N = mat.dim().second;
@@ -221,7 +221,7 @@ namespace linalg {
 		friend operator*(MR&& from, Matrix<DT>&& mat) {
 			assert(from.N == mat.dim().first);
 			// if from is lvalue, we duplicated it; if it's rvalue, we move it
-			MatMulResult<DT> dup(from);
+			MatMulResult<DT> dup(std::forward<MatMulResult<DT>>(from));
 			dup.matrices.push_back(std::make_shared<Matrix<DT>>(std::move(mat)));
             dup.matDims.push_back(mat.dim().second);
 			dup.N = mat.dim().second;
@@ -234,7 +234,7 @@ namespace linalg {
 		friend operator*(MR1&& mr1, MR2&& mr2) {
 			assert(mr1.N == mr2.M);
 			// if mr1 is lvalue, we duplicated it; if it's rvalue, we move it
-			MatMulResult<DT> dup(mr1);
+			MatMulResult<DT> dup(std::forward<MatMulResult<DT>>(mr1));
 			dup.extend(mr2);
 			return dup;
 		}
@@ -244,7 +244,7 @@ namespace linalg {
 		friend operator*(Matrix<DT>& mat, MR&& to) {
 			assert(mat.N == to.M);
 			// if from is lvalue, we duplicated it; if it's rvalue, we move it
-			MatMulResult<DT> dup(to);
+			MatMulResult<DT> dup(std::forward<MatMulResult<DT>>(to));
 			dup.matrices.push_front(std::cref(mat));
             dup.matDims.push_front(mat.dim().first);
 			dup.M = mat.dim().first;
@@ -256,7 +256,7 @@ namespace linalg {
 		friend operator*(Matrix<DT>&& mat, MR&& to) {
 			assert(mat.N == to.M);
 			// if from is lvalue, we duplicated it; if it's rvalue, we move it
-			MatMulResult<DT> dup(to);
+			MatMulResult<DT> dup(std::forward<MatMulResult<DT>>(to));
 			dup.matrices.push_front(std::make_shared<Matrix<DT>>(std::move(mat)));
             dup.matDims.push_front(mat.dim().first);
 			dup.M = mat.dim().first;
